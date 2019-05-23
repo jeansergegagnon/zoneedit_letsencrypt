@@ -95,7 +95,7 @@ IMPORTANT NOTES:
    Donating to EFF:                    https://eff.org/donate-le
 ```
 
-Obviously, change the* sampledomain.com* to your domain in above exmaple command.
+Obviously, change the *sampledomain.com* to your domain in above exmaple command.
 
 Feel free to email me at jeanserge.gagnon@gmail.com for any questions or comments and fork this project to submit any pull requests. I will be happy to review and approve any changes that make this code even more useful to others.
 
