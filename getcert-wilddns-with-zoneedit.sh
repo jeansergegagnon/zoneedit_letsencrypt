@@ -5,11 +5,14 @@ MYDIR="`cd \"$MYDIR\" ; pwd`"
 
 # Report error or basic script usage
 Usage() {
-	echo "USAGE: $0 [-h] [-a] -d domain"
+	echo "USAGE: $0 [-h] [-a] [-D] [-V] [-R] -d domain"
 	if [ "$1" = "" ] ; then
 		echo "WHERE:"
 		echo "       -h         Show this help output."
 		echo "       -a         Enable full automation and no prompts for license or IP address recording."
+		echo "       -D         Enable debug output."
+		echo "       -V         Enable verbose output."
+		echo "       -R         Just do a dry run"
 		echo "       -d domain  The domain to create a *.domain certificate using ZoneEdit and LetsEncrypt."
 	else
 		echo "ERROR: $@"
@@ -20,10 +23,19 @@ Usage() {
 
 # Default values
 BOTDOMAIN=""
-FULL_AUTO=
+FULL_AUTO=""
+DEBUG=""
+VERBOSE=""
+DRYRUN=""
 while [ $# -gt 0 ] ; do
 	if [ "$1" = "-a" ] ; then
 		FULL_AUTO=1
+	elif [ "$1" = "-D" ] ; then
+		export DEBUG=1
+	elif [ "$1" = "-V" ] ; then
+		export VERBOSE=1
+	elif [ "$1" = "-R" ] ; then
+		export DRYRUN=1
 	elif [ "$1" = "-h" ] ; then
 		Usage
 	elif [ "$1" = "-d" ] ; then
@@ -87,8 +99,14 @@ if [ $FULL_AUTO ] ; then
 	# If running from cron, add -a arument and this will prevent any prompts to allow full automation
 	ARGS="--agree-tos --manual-public-ip-logging-ok --non-interactive $ARGS"
 fi
+if [ $DRYRUN ] ; then
+	ARGS="$ARGS --dry-run"
+fi
+if [ $DEBUG ] ; then
+	ARGS="$ARGS --debug"
+fi
 
 # Run the certbot-auto command to get DNS-01 wildcard domain cert
-echo "sudo ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN"
-sudo ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN
+echo "sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN"
+sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN
 

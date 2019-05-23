@@ -10,16 +10,19 @@ CONFIG=/etc/sysconfig/zoneedit.cfg
 COOKIES=$TMPDIR/cookies.txt
 
 # No debug by default - -D enables this
-DEBUG=
+DEBUG=""
 
 # No verbose by default - -V enabled this
-VERBOSE=
+VERBOSE=""
 
 # Output enabled by default (disable with -Q switch)
 ENABLE_OUTPUT=1
 
 # We start new session unless -k specified
 ZAP=1
+
+# No dry run by default
+DRYRUN=""
 
 # Run a curl command
 # Usage:
@@ -62,6 +65,7 @@ Usage() {
 		echo "      -D         Enable debug output (WARNING: Password output to stdout)."
 		echo "      -V         Enable verbose output."
 		echo "      -Q         Disable all output (quiet mode)."
+		echo "      -R         Do just a dry run and do not change anything on Zoneedit domain."
 		echo "      -d domain  Specify the domain to manage (required)."
 		echo "      -n name    Specify the name of the TXT record to edit (required)."
 		echo "      -v value   Specify the value of the TXT record to edit (require)."
@@ -97,6 +101,8 @@ while [ $# -gt 0 ] ; do
 		VERBOSE=1
 	elif [ "$1" = "-Q" ] ; then
 		ENABLE_OUTPUT=
+	elif [ "$1" = "-R" ] ; then
+		DRYRUN=1
 	elif [ "$1" = "-d" ] ; then
 		shift
 		txt_domain=$1
@@ -258,6 +264,41 @@ if [ $DEBUG ] ; then
 	echo "multipleTabFix = '$multipleTabFix'"
 fi
 
+# Figure out which id to use in the TXT records based on our name and id we asked for
+i=0
+found_ids=0
+our_id=-1
+while [ `grep -c TXT::$i::host $FILE` -gt 0 ] ; do
+	name=`grep "TXT::$i::host.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
+	# If the TXT record has no name or the same as ours...
+	if [ "$name" = "" -o "$name" = "$txt_name" ] ; then
+		if [ $DEBUG ] ; then
+			echo "Checking id $i with name='$name'"
+		fi
+		# If the found id count is same as our, then use it
+		if [ $found_ids -eq $txt_id ] ; then
+			if [ $VERBOSE ] ; then
+				echo "Using id $i with name='$name'"
+			fi
+			our_id=$i
+			break
+		fi
+		# If not, just increase found count for next loop
+		found_ids=$[$found_ids+1]
+	else
+		if [ $DEBUG ] ; then
+			echo "Skipping id $i with name='$name'"
+		fi
+	fi
+	i=$[$i+1]
+done
+
+# If we didn't set the id, then we need to abort
+if [ $our_id -eq -1 ] ; then
+	echo "ERROR: Failed to find a TXT record to use! Please cleanup some TXT records in ZoneEdit and try again."
+	exit 1
+fi
+
 # Build the full data set based on what is already configured in the domain
 DATA="-d MODE=edit -d csrf_token=$token -d multipleTabFix=$multipleTabFix"
 i=0
@@ -274,12 +315,12 @@ while [ `grep -c TXT::$i::host $FILE` -gt 0 ] ; do
 	if [ $DEBUG ] ; then
 		echo "TXT::$i::ttl = '$ttl'"
 	fi
-	if [ $i -eq $txt_id ] ; then
+	if [ $i -eq $our_id ] ; then
 		# If it's the record we are asking to edit, the set values based on what we passed in
 		if [ $DEBUG ] ; then
 			echo "Using our values for TXT::$i::...."
 		fi
-		DATA="$DATA -d TXT::$txt_id::host=$txt_name -d TXT::$txt_id::txt=$txt_value -d TXT::$txt_id::ttl=$txt_ttl"
+		DATA="$DATA -d TXT::$our_id::host=$txt_name -d TXT::$our_id::txt=$txt_value -d TXT::$our_id::ttl=$txt_ttl"
 	elif [ ! "$name" = "" ] ; then
 		# Otherwise, get existing data to pass back in
 		if [ $DEBUG ] ; then
@@ -290,50 +331,58 @@ while [ `grep -c TXT::$i::host $FILE` -gt 0 ] ; do
 	i=$[$i+1]
 done
 
-# Send the new values (click on the save button)
-output "Sending new TXT record values"
-CURL https://cp.zoneedit.com/manage/domains/txt/edit.php 07save $DATA
+if [ $DRYRUN ] ; then
 
-# Get token and other values
-FILE=$TMPDIR/07save.html
-token=`grep csrf_token $FILE | sed -e "s/.*value=//" | cut -d'"' -f2`
-if [ $DEBUG ] ; then
-	echo "csrf_token = '$token'"
-fi
-multipleTabFix=`grep multipleTabFix $FILE | sed -e "s/.*multipleTabFix//" | cut -d'"' -f3`
-if [ $DEBUG ] ; then
-	echo "multipleTabFix = '$multipleTabFix'"
-fi
-NEW_TXT=`grep hidden.*NEW_TXT $FILE  | sed -e "s/.*NEW_TXT//" | cut -d'"' -f3`
-if [ $DEBUG ] ; then
-	echo "NEW_TXT = '$NEW_TXT'"
-fi
+	output "OK: Succcessfully completed Dry-run."
+	exit 0
 
-# Save the new values (click the confirm button)
-CURL https://cp.zoneedit.com/manage/domains/txt/confirm.php 08confirm -d csrf_token=$token -d confirm= -d multipleTabFix=$multipleTabFix -d NEW_TXT=$NEW_TXT
-
-# Finally, get the table back to confirm settings saves properly
-output "Confirming change succeeded"
-CURL https://cp.zoneedit.com/manage/domains/txt/edit.php 09edit
-
-# Check that new values are what we expect
-FILE=$TMPDIR/09edit.html
-name=`grep "TXT::$txt_id::host.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
-if [ $DEBUG ] ; then
-	echo "name = '$name'"
-fi
-val=`grep "TXT::$txt_id::txt.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
-if [ $DEBUG ] ; then
-	echo "val = '$val'"
-fi
-ttl=`grep "TXT::$txt_id::ttl.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
-if [ $DEBUG ] ; then
-	echo "ttl = '$ttl'"
-fi
-if [ "$name" = "$txt_name" -a "$val" = "$txt_value" -a "$ttl" = "$txt_ttl" ] ; then
-	echo "OK: Successfully set TXT record $txt_name.$txt_domain=$txt_value"
 else
-	echo "ERROR: TXT record #$txt_id is $name.$txt.domain=$value instead of expected $txt_name.$txt_domain=$txt_value"
-	exit 1
+
+	# Send the new values (click on the save button)
+	output "Sending new TXT record values"
+	CURL https://cp.zoneedit.com/manage/domains/txt/edit.php 07save $DATA
+
+	# Get token and other values
+	FILE=$TMPDIR/07save.html
+	token=`grep csrf_token $FILE | sed -e "s/.*value=//" | cut -d'"' -f2`
+	if [ $DEBUG ] ; then
+		echo "csrf_token = '$token'"
+	fi
+	multipleTabFix=`grep multipleTabFix $FILE | sed -e "s/.*multipleTabFix//" | cut -d'"' -f3`
+	if [ $DEBUG ] ; then
+		echo "multipleTabFix = '$multipleTabFix'"
+	fi
+	NEW_TXT=`grep hidden.*NEW_TXT $FILE  | sed -e "s/.*NEW_TXT//" | cut -d'"' -f3`
+	if [ $DEBUG ] ; then
+		echo "NEW_TXT = '$NEW_TXT'"
+	fi
+
+	# Save the new values (click the confirm button)
+	CURL https://cp.zoneedit.com/manage/domains/txt/confirm.php 08confirm -d csrf_token=$token -d confirm= -d multipleTabFix=$multipleTabFix -d NEW_TXT=$NEW_TXT
+
+	# Finally, get the table back to confirm settings saves properly
+	output "Confirming change succeeded"
+	CURL https://cp.zoneedit.com/manage/domains/txt/edit.php 09edit
+
+	# Check that new values are what we expect
+	FILE=$TMPDIR/09edit.html
+	name=`grep "TXT::$our_id::host.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
+	if [ $DEBUG ] ; then
+		echo "name = '$name'"
+	fi
+	val=`grep "TXT::$our_id::txt.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
+	if [ $DEBUG ] ; then
+		echo "val = '$val'"
+	fi
+	ttl=`grep "TXT::$our_id::ttl.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
+	if [ $DEBUG ] ; then
+		echo "ttl = '$ttl'"
+	fi
+	if [ "$name" = "$txt_name" -a "$val" = "$txt_value" -a "$ttl" = "$txt_ttl" ] ; then
+		echo "OK: Successfully set TXT record $txt_name.$txt_domain=$txt_value"
+	else
+		echo "ERROR: TXT record #$our_id is $name.$txt_domain=$val instead of expected $txt_name.$txt_domain=$txt_value"
+		exit 1
+	fi
 fi
 
