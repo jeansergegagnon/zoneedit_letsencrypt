@@ -21,14 +21,30 @@ fi
 # Get the ID (initial will be 0)
 ID=`cat $DIR/id`
 
+# Set the arguments based on if DEBUG, VERBOSE or DRYRUN is set from calling script (in environment)
+ARGS="-d $CERTBOT_DOMAIN -n _acme-challenge -v $CERTBOT_VALIDATION -i $ID"
+if [ $DEBUG ] ; then
+	ARGS="$ARGS -D"
+elif [ $VERBOSE ] ; then
+	ARGS="$ARGS -V"
+fi
+
+# Time to sleep after calling DNS update
+WAIT_SECONDS=60
+if [ $DRYRUN ] ; then
+	ARGS="$ARGS -R"
+	# No need to wait for dry runs
+	WAIT_SECONDS=1
+fi
+
 # Run the zoneedit TXT record update script - if config not set, this will fail
-echo "./zoneedit.sh -V -d $CERTBOT_DOMAIN -n _acme-challenge -v $CERTBOT_VALIDATION -i $ID"
-./zoneedit.sh -V -d $CERTBOT_DOMAIN -n _acme-challenge -v $CERTBOT_VALIDATION -i $ID || exit $?
+echo "./zoneedit.sh $ARGS"
+./zoneedit.sh $ARGS || exit $?
 
 # Update the ID for next call (if more than one from certbot-auto)
 ID=$[$ID+1]
 echo $ID > $DIR/id
 
 # Wait a bit to make sure DNS cache is cleared and update completes
-sleep 30
+sleep $WAIT_SECONDS
 
