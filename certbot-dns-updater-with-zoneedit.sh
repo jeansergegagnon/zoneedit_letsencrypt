@@ -26,7 +26,7 @@ echo "./zoneedit.sh -V -d $CERTBOT_DOMAIN -n _acme-challenge -v $CERTBOT_VALIDAT
 ./zoneedit.sh -V -d $CERTBOT_DOMAIN -n _acme-challenge -v $CERTBOT_VALIDATION -i $ID || exit $?
 
 # Update the ID for next call (if more than one from certbot-auto)
-ID=($ID+1)
+ID=$[$ID+1]
 echo $ID > $DIR/id
 
 # Wait a bit to make sure DNS cache is cleared and update completes
