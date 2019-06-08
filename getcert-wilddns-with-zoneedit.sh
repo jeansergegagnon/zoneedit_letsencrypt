@@ -5,14 +5,15 @@ MYDIR="`cd \"$MYDIR\" ; pwd`"
 
 # Report error or basic script usage
 Usage() {
-	echo "USAGE: $0 [-h] [-a] [-D] [-V] [-R] -d domain"
+	echo "USAGE: $0 [-h] [-a] [-D] [-V] [-R] [-e email] -d domain"
 	if [ "$1" = "" ] ; then
 		echo "WHERE:"
 		echo "       -h         Show this help output."
 		echo "       -a         Enable full automation and no prompts for license or IP address recording."
 		echo "       -D         Enable debug output."
 		echo "       -V         Enable verbose output."
-		echo "       -R         Just do a dry run"
+		echo "       -R         Just do a dry run."
+		echo "       -e email   Send email to this address when done (requires sendmail be installed)."
 		echo "       -d domain  The domain to create a *.domain certificate using ZoneEdit and LetsEncrypt."
 	else
 		echo "ERROR: $@"
@@ -27,9 +28,13 @@ FULL_AUTO=""
 DEBUG=""
 VERBOSE=""
 DRYRUN=""
+EMAIL=""
 while [ $# -gt 0 ] ; do
 	if [ "$1" = "-a" ] ; then
 		FULL_AUTO=1
+	elif [ "$1" = "-e" ] ; then
+		shift
+		export EMAIL=$1
 	elif [ "$1" = "-D" ] ; then
 		export DEBUG=1
 	elif [ "$1" = "-V" ] ; then
@@ -60,6 +65,18 @@ fi
 # Do not go any further if we can't find the certbot-auto binary
 if [ "$CERTBOT" = "" -o ! -x "$CERTBOT" ] ; then
 	Usage "Please set CERTBOTDIR before running this script or add certbot-auto to PATH"
+fi
+
+if [ ! "$EMAIL" = "" -a "$SENDMAIL" = "" ] ; then
+	SENDMAIL=`which sendmail 2>/dev/null`
+	if [ "$SENDMAIL" = "" ] ; then
+		if [ -x /usr/sbin/sendmail ] ; then
+			SENDMAIL=/usr/sbin/sendmail
+		fi
+	fi
+	if [ "$SENDMAIL" = "" ] ; then
+		Usage "Can't find sendmail. Please install it or set environment variable SENDMAIL to point to binary"
+	fi
 fi
 
 # Abort if the domain (-d) wasn't specified
@@ -107,6 +124,30 @@ if [ $DEBUG ] ; then
 fi
 
 # Run the certbot-auto command to get DNS-01 wildcard domain cert
-echo "sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN"
-sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN
+OUT=/tmp/certbot.out.$$
+echo "`date`: sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN" | tee $OUT
+sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN 2>&1 | tee -a $OUT
+echo "`date`: Completed call to certbot-auto" | tee -a $OUT
+
+if [ ! "$EMAIL" = "" ] ; then
+	if [ `grep -c "error" $OUT` -gt 0 ] ; then
+		SUBJECT="Failed to update $BOTDOMAIN"
+	elif [ `grep -c "Cert not yet due for renewal" $OUT` -gt 0 ] ; then
+		SUBJECT="Domain $BOTDOMAIN not due for renewal"
+	else
+		SUBJECT="Renewed certificate for $BOTDOMAIN"
+	fi
+	(
+		echo "Subject: certbot: $SUBJECT"
+		echo "To: $EMAIL"
+		echo "From: Certbot <certbot@$BOTDOMAIN>"
+		echo "Content-type: text/html"
+		echo ""
+		echo "Log output:"
+		echo "<pre>"
+		cat $OUT
+		echo "</pre>"
+	) | $SENDMAIL -t -i -fcertbot@$BOTDOMAIN -FCertbot
+fi
+rm $OUT
 

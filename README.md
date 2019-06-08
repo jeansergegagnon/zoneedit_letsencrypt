@@ -36,10 +36,11 @@ and you can re-run the command which will complete
 ./getcert-wilddns-with-zoneedit.sh -d yourdomain.com
 ```
 
-To automate this in cron, you can add the -a flag, for example:
+To automate this in cron, you can add the -a flag and the -e email value, for example:
 
 ```
-0 0,12 * * * /home/user/code/zoneedit_letsencrypt/getcert-wilddns-with-zoneedit.sh -d yourdomain.com -a
+CERTBOTDIR=/home/user/certbot
+0 0 10,20 * * /home/user/code/zoneedit_letsencrypt/getcert-wilddns-with-zoneedit.sh -d yourdomain.com -a -e youremail@yourdomain.com
 ```
 
 For example, when running this command:
