@@ -1,4 +1,7 @@
 # zoneedit_letsencrypt
+
+![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/automated-zoneedit-letsencrypt.JPG)
+
 Scripts to enable automated ssl certificate update dns-01 challenge with Linux, Zoneedit and Letsencrypt
 
 This is a very basic script for my needs.
