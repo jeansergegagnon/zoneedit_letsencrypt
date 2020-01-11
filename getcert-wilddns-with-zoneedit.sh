@@ -128,16 +128,20 @@ if [ $DEBUG ] ; then
 fi
 
 # Check the cert's expiry date
+HOURS_TO_EXPIRE=0
 if [ -e /etc/letsencrypt/live/$BOTDOMAIN/cert.pem ] ; then
-	EXPIRE_DATE=`openssl x509 -in /etc/letsencrypt/live/$BOTDOMAIN/cert.pem -noout -dates | grep notAfter | cut -d= -f2`
-	EXPIRE_TS=`date -d "$EXPIRE_DATE" +%s`
-	NOW_TS=`date +%s`
-	SECS_TO_EXPIRE=$[$EXPIRE_TS-$NOW_TS]
-	HOURS_TO_EXPIRE=$[$SECS_TO_EXPIRE/60/60]
-	DAYS_TO_EXPIRE=$[$SECS_TO_EXPIRE/60/60/24]
-	echo "`date`: Certificate for $BOTDOMAIN expires on $EXPIRE_DATE (or $DAYS_TO_EXPIRE days or $HOURS_TO_EXPIRE hours or $SECS_TO_EXPIRE seconds)"
-else # We don't have a cert yet
-	HOURS_TO_EXPIRE=0
+	OPENSSL=`which openssl 2>/dev/null`
+	if [ $OPENSSL ] ; then
+		EXPIRE_DATE=`$OPENSSL x509 -in /etc/letsencrypt/live/$BOTDOMAIN/cert.pem -noout -dates | grep notAfter | cut -d= -f2`
+		EXPIRE_TS=`date -d "$EXPIRE_DATE" +%s`
+		NOW_TS=`date +%s`
+		SECS_TO_EXPIRE=$[$EXPIRE_TS-$NOW_TS]
+		HOURS_TO_EXPIRE=$[$SECS_TO_EXPIRE/60/60]
+		DAYS_TO_EXPIRE=$[$SECS_TO_EXPIRE/60/60/24]
+		echo "`date`: Certificate for $BOTDOMAIN expires on $EXPIRE_DATE (or $DAYS_TO_EXPIRE days or $HOURS_TO_EXPIRE hours or $SECS_TO_EXPIRE seconds)"
+	else
+		echo "WARNING: Can't find openssl to check cert expiry - will let letsencrypt check for us"
+	fi
 fi
 
 if [ $HOURS_TO_EXPIRE -gt $[24*15] -a ! "$FORCE" = "yes" ] ; then
