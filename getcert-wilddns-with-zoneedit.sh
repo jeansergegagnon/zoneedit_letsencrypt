@@ -5,11 +5,12 @@ MYDIR="`cd \"$MYDIR\" ; pwd`"
 
 # Report error or basic script usage
 Usage() {
-	echo "USAGE: $0 [-h] [-a] [-D] [-V] [-R] [-e email] -d domain"
+	echo "USAGE: $0 [-h] [-a] [-f] [-D] [-V] [-R] [-e email] -d domain"
 	if [ "$1" = "" ] ; then
 		echo "WHERE:"
 		echo "       -h         Show this help output."
 		echo "       -a         Enable full automation and no prompts for license or IP address recording."
+		echo "       -f         Force update even if expiry is not soon enough."
 		echo "       -D         Enable debug output."
 		echo "       -V         Enable verbose output."
 		echo "       -R         Just do a dry run."
@@ -25,6 +26,7 @@ Usage() {
 # Default values
 BOTDOMAIN=""
 FULL_AUTO=""
+FORCE=no
 DEBUG=""
 VERBOSE=""
 DRYRUN=""
@@ -35,6 +37,8 @@ while [ $# -gt 0 ] ; do
 	elif [ "$1" = "-e" ] ; then
 		shift
 		export EMAIL=$1
+	elif [ "$1" = "-f" ] ; then
+		export FORCE=yes
 	elif [ "$1" = "-D" ] ; then
 		export DEBUG=1
 	elif [ "$1" = "-V" ] ; then
@@ -113,7 +117,7 @@ echo 0 > $DIR/id || exit $?
 # if this is a renewal, you just need to restart apache
 ARGS="--manual --manual-auth-hook $MYDIR/certbot-dns-updater-with-zoneedit.sh --preferred-challenges dns-01"
 if [ $FULL_AUTO ] ; then
-	# If running from cron, add -a arument and this will prevent any prompts to allow full automation
+	# If running from cron, add -a argument and this will prevent any prompts to allow full automation
 	ARGS="--agree-tos --manual-public-ip-logging-ok --non-interactive $ARGS"
 fi
 if [ $DRYRUN ] ; then
@@ -123,31 +127,48 @@ if [ $DEBUG ] ; then
 	ARGS="$ARGS --debug"
 fi
 
-# Run the certbot-auto command to get DNS-01 wildcard domain cert
-OUT=/tmp/certbot.out.$$
-echo "`date`: sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN" | tee $OUT
-sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN 2>&1 | tee -a $OUT
-echo "`date`: Completed call to certbot-auto" | tee -a $OUT
-
-if [ ! "$EMAIL" = "" ] ; then
-	if [ `grep -c "error" $OUT` -gt 0 ] ; then
-		SUBJECT="Failed to update $BOTDOMAIN"
-	elif [ `grep -c "Cert not yet due for renewal" $OUT` -gt 0 ] ; then
-		SUBJECT="Domain $BOTDOMAIN not due for renewal"
-	else
-		SUBJECT="Renewed certificate for $BOTDOMAIN"
-	fi
-	(
-		echo "Subject: certbot: $SUBJECT"
-		echo "To: $EMAIL"
-		echo "From: Certbot <certbot@$BOTDOMAIN>"
-		echo "Content-type: text/html"
-		echo ""
-		echo "Log output:"
-		echo "<pre>"
-		cat $OUT
-		echo "</pre>"
-	) | $SENDMAIL -t -i -fcertbot@$BOTDOMAIN -FCertbot
+# Check the cert's expiry date
+if [ -e /etc/letsencrypt/live/$BOTDOMAIN/cert.pem ] ; then
+	EXPIRE_DATE=`openssl x509 -in /etc/letsencrypt/live/$BOTDOMAIN/cert.pem -noout -dates | grep notAfter | cut -d= -f2`
+	EXPIRE_TS=`date -d "$EXPIRE_DATE" +%s`
+	NOW_TS=`date +%s`
+	SECS_TO_EXPIRE=$[$EXPIRE_TS-$NOW_TS]
+	HOURS_TO_EXPIRE=$[$SECS_TO_EXPIRE/60/60]
+	DAYS_TO_EXPIRE=$[$SECS_TO_EXPIRE/60/60/24]
+	echo "`date`: Certificate for $BOTDOMAIN expires on $EXPIRE_DATE (or $DAYS_TO_EXPIRE days or $HOURS_TO_EXPIRE hours or $SECS_TO_EXPIRE seconds)"
+else # We don't have a cert yet
+	HOURS_TO_EXPIRE=0
 fi
-rm $OUT
+
+if [ $HOURS_TO_EXPIRE -gt $[24*15] -a ! "$FORCE" = "yes" ] ; then
+	echo "`date`: Not renewing yet. Use -f to force renewal even if cert is not expiring soon"
+else
+	# Run the certbot-auto command to get DNS-01 wildcard domain cert
+	OUT=/tmp/certbot.out.$$
+	echo "`date`: sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN" | tee $OUT
+	sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN 2>&1 | tee -a $OUT
+	echo "`date`: Completed call to certbot-auto" | tee -a $OUT
+
+	if [ ! "$EMAIL" = "" ] ; then
+		if [ `grep -c "error" $OUT` -gt 0 ] ; then
+			SUBJECT="Failed to update $BOTDOMAIN"
+		elif [ `grep -c "Cert not yet due for renewal" $OUT` -gt 0 ] ; then
+			SUBJECT="Domain $BOTDOMAIN not due for renewal"
+		else
+			SUBJECT="Renewed certificate for $BOTDOMAIN"
+		fi
+		(
+			echo "Subject: certbot: $SUBJECT"
+			echo "To: $EMAIL"
+			echo "From: Certbot <certbot@$BOTDOMAIN>"
+			echo "Content-type: text/html"
+			echo ""
+			echo "Log output:"
+			echo "<pre>"
+			cat $OUT
+			echo "</pre>"
+		) | $SENDMAIL -t -i -fcertbot@$BOTDOMAIN -FCertbot
+	fi
+	rm $OUT
+fi
 
