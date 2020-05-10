@@ -149,7 +149,7 @@ if [ -e /etc/letsencrypt/live/$BOTDOMAIN/cert.pem ] ; then
 	fi
 fi
 
-if [ $HOURS_TO_EXPIRE -lt $[24*$DAYS_BEFORE_AUTO_RENEW] -0 "$FORCE" = "yes" -o $HOURS_TO_EXPIRE -eq 0 ] ; then
+if [ $HOURS_TO_EXPIRE -lt $[24*$DAYS_BEFORE_AUTO_RENEW] -o "$FORCE" = "yes" -o $HOURS_TO_EXPIRE -eq 0 ] ; then
 	# Run the certbot-auto command to get DNS-01 wildcard domain cert
 	OUT=/tmp/certbot.out.$$
 	echo "`date`: sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN" | tee $OUT
