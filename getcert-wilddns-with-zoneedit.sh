@@ -11,6 +11,7 @@ Usage() {
 		echo "       -h         Show this help output."
 		echo "       -a         Enable full automation and no prompts for license or IP address recording."
 		echo "       -f         Force update even if expiry is not soon enough."
+		echo "       -n         Number of days to consider for renewal (default 10)."
 		echo "       -D         Enable debug output."
 		echo "       -V         Enable verbose output."
 		echo "       -R         Just do a dry run."
@@ -31,9 +32,13 @@ DEBUG=""
 VERBOSE=""
 DRYRUN=""
 EMAIL=""
+DAYS_BEFORE_AUTO_RENEW=10
 while [ $# -gt 0 ] ; do
 	if [ "$1" = "-a" ] ; then
 		FULL_AUTO=1
+	elif [ "$1" = "-n" ] ; then
+		shift
+		export DAYS_BEFORE_AUTO_RENEW=$1
 	elif [ "$1" = "-e" ] ; then
 		shift
 		export EMAIL=$1
@@ -144,9 +149,7 @@ if [ -e /etc/letsencrypt/live/$BOTDOMAIN/cert.pem ] ; then
 	fi
 fi
 
-if [ $HOURS_TO_EXPIRE -gt $[24*15] -a ! "$FORCE" = "yes" ] ; then
-	echo "`date`: Not renewing yet. Use -f to force renewal even if cert is not expiring soon"
-else
+if [ $HOURS_TO_EXPIRE -lt $[24*$DAYS_BEFORE_AUTO_RENEW] -0 "$FORCE" = "yes" -o $HOURS_TO_EXPIRE -eq 0 ] ; then
 	# Run the certbot-auto command to get DNS-01 wildcard domain cert
 	OUT=/tmp/certbot.out.$$
 	echo "`date`: sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN" | tee $OUT
@@ -174,5 +177,7 @@ else
 		) | $SENDMAIL -t -i -fcertbot@$BOTDOMAIN -FCertbot
 	fi
 	rm $OUT
+else
+	echo "`date`: Not renewing yet. Use -f to force renewal even if cert is not expiring soon"
 fi
 
