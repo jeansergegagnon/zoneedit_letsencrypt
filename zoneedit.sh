@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # Temp dir where we store our files as we execute
-TMPDIR=/tmp/zoneedit
+if [ "$WORKDIR" = "" ] ; then
+	WORKDIR=/tmp/zoneedit
+fi
+TMPDIR=$WORKDIR/tmp
 
 # Path to config file
 CONFIG=/etc/sysconfig/zoneedit.cfg
@@ -88,7 +91,6 @@ output() {
 # Default time to live is 60 seconds
 txt_ttl=60
 # Default record ID is the first one (#0) - should be 0, 1, 2, 3, 4.. etc
-txt_id=0
 
 # Extract any passed in arguments
 while [ $# -gt 0 ] ; do
@@ -115,9 +117,6 @@ while [ $# -gt 0 ] ; do
 	elif [ "$1" = "-t" ] ; then
 		shift
 		txt_ttl=$1
-	elif [ "$1" = "-i" ] ; then
-		shift
-		txt_id=$1
 	elif [ "$1" = "-k" ] ; then
 		ZAP=
 	fi
@@ -186,16 +185,17 @@ fi
 # Start the process
 # First, we need to access the main login page to initialize cookies and session info
 output "Getting initial login cookies"
-CURL https://cp.zoneedit.com/login.php 01login
+NAME=01login
+CURL https://cp.zoneedit.com/login.php $NAME
 
 # Get the initial token
-token=`grep csrf_token $TMPDIR/01login.html | sed -e "s/.*value=//" | cut -d'"' -f2`
+token=`grep csrf_token $TMPDIR/$NAME.html | sed -e "s/.*value=//" | cut -d'"' -f2`
 if [ $DEBUG ] ; then
 	echo "csrf_token = '$token'"
 fi
 
 # Create the required hashes for login
-login_chal=`grep login_chal.*VALUE $TMPDIR/01login.html  | sed -e "s/.*login_chal//" | cut -d'"' -f3`
+login_chal=`grep login_chal.*VALUE $TMPDIR/$NAME.html  | sed -e "s/.*login_chal//" | cut -d'"' -f3`
 if [ $DEBUG ] ; then
 	echo "login_chal = '$login_chal'"
 fi
@@ -210,7 +210,8 @@ fi
 
 # Send the login POST request
 output "Logging in"
-CURL https://cp.zoneedit.com/home/ 02home -d login_chal=$login_chal -d login_hash=$hash -d login_user=$ZONEEDIT_USER -d login_pass=$ZONEEDIT_PASS -d csrf_token=$token -d login=
+NAME=02home
+CURL https://cp.zoneedit.com/home/ $NAME -d login_chal=$login_chal -d login_hash=$hash -d login_user=$ZONEEDIT_USER -d login_pass=$ZONEEDIT_PASS -d csrf_token=$token -d login=
 
 # Check that login was successful
 # when successfull, we get this in the header
@@ -218,43 +219,47 @@ CURL https://cp.zoneedit.com/home/ 02home -d login_chal=$login_chal -d login_has
 # on failure, we get this in the header
 #    Location: https://cp.zoneedit.com/login.php
 
-LOCATION=`grep ^Location: $TMPDIR/02home.header | cut -d' ' -f2`
+LOCATION=`cat $TMPDIR/$NAME.header | tr '\r' '\n' | grep ^Location: | cut -d' ' -f2`
 if [ $DEBUG ] ; then
 	echo "LOCATION = '$LOCATION'"
 fi
 if [ `echo $LOCATION | grep -c manage/domains` -eq 0 ] ; then
-	echo "ERROR: Invalid user of password!"
+	echo "ERROR: Invalid user or password!"
 	exit 1
 fi
 
 # Get our domain list
 output "Validating domain"
-CURL https://cp.zoneedit.com/manage/domains/ 03domains
+NAME=03domains
+CURL https://cp.zoneedit.com/manage/domains/ $NAME
 
 # Check that the requested domain exists in our domain list
-if [ `grep -c "index.php?LOGIN=$txt_domain\"" $TMPDIR/03domains.html` -eq 0 ] ; then
+if [ `grep -c "index.php?LOGIN=$txt_domain\"" $TMPDIR/$NAME.html` -eq 0 ] ; then
 	echo "ERROR: Invalid domain '$txt_domain'!"
 	exit 1
 fi
 
 # Access the domain we are wanting to edit
-CURL https://cp.zoneedit.com/manage/domains/zone/index.php?LOGIN=$txt_domain 04domain
+NAME=04domain
+CURL https://cp.zoneedit.com/manage/domains/zone/index.php?LOGIN=$txt_domain $NAME
 
 # Check we successfully switched to domain
-if [ `grep -c "^$txt_domain</" $TMPDIR/04domain.html` -eq 0 ] ; then
+if [ `grep -c "^$txt_domain</" $TMPDIR/$NAME.html` -eq 0 ] ; then
 	echo "ERROR: Unable to access domain '$txt_domain'!"
 	exit 1
 fi
 
 # Switch to the TXT records edit page
 output "Loading TXT edit page"
-CURL https://cp.zoneedit.com/manage/domains/txt/ 05txt
+NAME=05txt
+CURL https://cp.zoneedit.com/manage/domains/txt/ $NAME
 
 # Click the edit button
-CURL https://cp.zoneedit.com/manage/domains/txt/edit.php 06edit
+NAME=06edit
+CURL https://cp.zoneedit.com/manage/domains/txt/edit.php $NAME
 
 # Get the token and other generated values
-FILE=$TMPDIR/06edit.html
+FILE=$TMPDIR/$NAME.html
 token=`grep csrf_token $FILE | sed -e "s/.*value=//" | cut -d'"' -f2`
 if [ $DEBUG ] ; then
 	echo "csrf_token = '$token'"
@@ -264,19 +269,32 @@ if [ $DEBUG ] ; then
 	echo "multipleTabFix = '$multipleTabFix'"
 fi
 
+# See if this is the second call from certbot
+# the other script always cleans up the folder first, so
+# if this is second call in, then the file will exist
+if [ -f $WORKDIR/txtrecord1 ] ; then
+	TXT1=`cat $WORKDIR/txtrecord1`
+else
+	# if it's not there, then save our value for the next call
+	TXT1=""
+	echo "$txt_value" >> $WORKDIR/txtrecord1
+fi
+
 # Figure out which id to use in the TXT records based on our name and id we asked for
 i=0
 found_ids=0
 our_id=-1
 while [ `grep -c TXT::$i::host $FILE` -gt 0 ] ; do
 	name=`grep "TXT::$i::host.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
+	val=`grep "TXT::$i::txt.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
 	# If the TXT record has no name or the same as ours...
 	if [ "$name" = "" -o "$name" = "$txt_name" ] ; then
 		if [ $DEBUG ] ; then
 			echo "Checking id $i with name='$name'"
 		fi
-		# If the found id count is same as our, then use it
-		if [ $found_ids -eq $txt_id ] ; then
+		# If this isn't the same as previous run (or there no previous run)
+		# then use this id for new value
+		if [ ! "$val" = "$TXT1" -o "$name" = "" ] ; then
 			if [ $VERBOSE ] ; then
 				echo "Using id $i with name='$name'"
 			fi
@@ -299,6 +317,8 @@ if [ $our_id -eq -1 ] ; then
 	exit 1
 fi
 
+# If we use file for old data or not (default ="" means no)
+USEFILE_FOR_DATA=""
 # Build the full data set based on what is already configured in the domain
 DATA="-d MODE=edit -d csrf_token=$token -d multipleTabFix=$multipleTabFix"
 i=0
@@ -320,13 +340,24 @@ while [ `grep -c TXT::$i::host $FILE` -gt 0 ] ; do
 		if [ $DEBUG ] ; then
 			echo "Using our values for TXT::$i::...."
 		fi
-		DATA="$DATA -d TXT::$our_id::host=$txt_name -d TXT::$our_id::txt=$txt_value -d TXT::$our_id::ttl=$txt_ttl"
+		DATA="$DATA -d TXT::$i::host=$txt_name"
+		DATA="$DATA -d TXT::$i::txt=$txt_value"
+		DATA="$DATA -d TXT::$i::ttl=$txt_ttl"
 	elif [ ! "$name" = "" ] ; then
 		# Otherwise, get existing data to pass back in
 		if [ $DEBUG ] ; then
 			echo "Using values already set for TXT::$i::...."
 		fi
-		DATA="$DATA -d TXT::$i::host=$name -d TXT::$i::txt=$val -d TXT::$i::ttl=$ttl"
+		if [ $USEFILE_FOR_DATA ] ; then
+			echo "TXT::$i::host=$name" > $TMPDIR/data-name-$i
+			echo "TXT::$i::txt=$val" > $TMPDIR/data-txt-$i
+			DATA="$DATA --data-urlencode @$TMPDIR/data-name-$i"
+			DATA="$DATA --data-urlencode @$TMPDIR/data-txt-$i"
+		else
+			DATA="$DATA -d TXT::$i::host=$name"
+			DATA="$DATA -d TXT::$i::txt=$val"
+		fi
+		DATA="$DATA -d TXT::$i::ttl=$ttl"
 	fi
 	i=$[$i+1]
 done
@@ -340,10 +371,11 @@ else
 
 	# Send the new values (click on the save button)
 	output "Sending new TXT record values"
-	CURL https://cp.zoneedit.com/manage/domains/txt/edit.php 07save $DATA
+	NAME=07save
+	CURL https://cp.zoneedit.com/manage/domains/txt/edit.php $NAME $DATA
 
 	# Get token and other values
-	FILE=$TMPDIR/07save.html
+	FILE=$TMPDIR/$NAME.html
 	token=`grep csrf_token $FILE | sed -e "s/.*value=//" | cut -d'"' -f2`
 	if [ $DEBUG ] ; then
 		echo "csrf_token = '$token'"
@@ -356,32 +388,59 @@ else
 	if [ $DEBUG ] ; then
 		echo "NEW_TXT = '$NEW_TXT'"
 	fi
+#<img src="https://cp.zoneedit.com/images/common/error_arrow.gif" border="0" width="11" height="10" alt="error" title="error" />
+# <font class="error">
+#No IPs detected in SPF</font>
+#<br />
+	ERROR_MESSAGE=`grep -A1 'font class="error"' $FILE | tail -1 | cut -d'<' -f1`
+	if [ ! "$ERROR_MESSAGE" = "" ] ; then
+		cat $FILE
+		echo "ERROR: $ERROR_MESSAGE!"
+		exit 1
+	elif [ "$NEW_TXT" = "" -o "$token" = "" -o "$multipleTabFix" = "" ] ; then
+		cat $FILE
+		echo "ERROR: Failed to find NEW_TXT, csrf_token or multipleTabFix in $FILE!"
+		exit 1
+	fi
 
 	# Save the new values (click the confirm button)
-	CURL https://cp.zoneedit.com/manage/domains/txt/confirm.php 08confirm -d csrf_token=$token -d confirm= -d multipleTabFix=$multipleTabFix -d NEW_TXT=$NEW_TXT
+	NAME=08confirm
+	CURL https://cp.zoneedit.com/manage/domains/txt/confirm.php $NAME -d csrf_token=$token -d confirm= -d multipleTabFix=$multipleTabFix -d NEW_TXT=$NEW_TXT
+	# Expect to see:
+#Thank You. Your new DNS information for <b>
+#jeansergegagnon.com</b>
+# is now in place.
+#</p>
+
 
 	# Finally, get the table back to confirm settings saves properly
 	output "Confirming change succeeded"
-	CURL https://cp.zoneedit.com/manage/domains/txt/edit.php 09edit
+	NAME=09edit
+	CURL https://cp.zoneedit.com/manage/domains/txt/edit.php $NAME
 
 	# Check that new values are what we expect
-	FILE=$TMPDIR/09edit.html
-	name=`grep "TXT::$our_id::host.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
-	if [ $DEBUG ] ; then
-		echo "name = '$name'"
-	fi
-	val=`grep "TXT::$our_id::txt.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
-	if [ $DEBUG ] ; then
-		echo "val = '$val'"
-	fi
-	ttl=`grep "TXT::$our_id::ttl.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
-	if [ $DEBUG ] ; then
-		echo "ttl = '$ttl'"
-	fi
-	if [ "$name" = "$txt_name" -a "$val" = "$txt_value" -a "$ttl" = "$txt_ttl" ] ; then
+	FILE=$TMPDIR/$NAME.html
+	FOUNDIT=""
+	i=0
+	while [ `grep -c TXT::$i::host $FILE` -gt 0 ] ; do
+		name=`grep "TXT::$i::host.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
+		if [ $DEBUG ] ; then
+			echo "TXT::$i::host = '$name'"
+		fi
+		val=`grep "TXT::$i::txt.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
+		if [ $DEBUG ] ; then
+			echo "TXT::$i::txt = '$val'"
+		fi
+		if [ "$name" = "$txt_name" -a "$val" = "$txt_value" ] ; then
+			FOUNDIT=1
+			break
+		fi
+		i=$[$i+1]
+	done
+	if [ $FOUNDIT ] ; then
 		echo "OK: Successfully set TXT record $txt_name.$txt_domain=$txt_value"
 	else
-		echo "ERROR: TXT record #$our_id is $name.$txt_domain=$val instead of expected $txt_name.$txt_domain=$txt_value"
+		echo "ERROR: Did not find $txt_name.$txt_domain=$txt_value in new records!"
 		exit 1
 	fi
 fi
