@@ -395,6 +395,8 @@ else
 	ERROR_MESSAGE=`grep -A1 'font class="error"' $FILE | tail -1 | cut -d'<' -f1`
 	if [ ! "$ERROR_MESSAGE" = "" ] ; then
 		cat $FILE
+		ERROR_BLOCK=`cat $FILE | sed -n '/.*td class="errorBlock.*/,/.*<\/td>.*/p' | egrep -v '^$|<td|td>'`
+		echo "$ERROR_BLOCK"
 		echo "ERROR: $ERROR_MESSAGE!"
 		exit 1
 	elif [ "$NEW_TXT" = "" -o "$token" = "" -o "$multipleTabFix" = "" ] ; then
