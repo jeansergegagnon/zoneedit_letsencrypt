@@ -17,6 +17,7 @@ Usage() {
 		echo "       -R         Just do a dry run."
 		echo "       -e email   Send email to this address when done (requires sendmail be installed)."
 		echo "       -d domain  The domain to create a *.domain certificate using ZoneEdit and LetsEncrypt."
+		echo "       -c         Use certbot instead of certbot-auto."
 	else
 		echo "ERROR: $@"
 		exit 1
@@ -33,6 +34,7 @@ VERBOSE=""
 DRYRUN=""
 EMAIL=""
 DAYS_BEFORE_AUTO_RENEW=10
+CERTBOT_EXE=certbot-auto
 while [ $# -gt 0 ] ; do
 	if [ "$1" = "-a" ] ; then
 		FULL_AUTO=1
@@ -52,6 +54,8 @@ while [ $# -gt 0 ] ; do
 		export DRYRUN=1
 	elif [ "$1" = "-h" ] ; then
 		Usage
+	elif [ "$1" = "-c" ] ; then
+		CERTBOT_EXE=certbot
 	elif [ "$1" = "-d" ] ; then
 		shift
 		BOTDOMAIN=$1
@@ -59,21 +63,21 @@ while [ $# -gt 0 ] ; do
 	shift
 done
 
-# Figure out where the certbot-auto script is installed
+# Figure out where the $CERTBOT_EXE script is installed
 CERTBOT=""
 # If we didn't specify the directory, then try to find it
 if [ "$CERTBOTDIR" = "" ] ; then
-	CERTBOT=`which certbot-auto 2>/dev/null`
+	CERTBOT=`which $CERTBOT_EXE 2>/dev/null`
 	if [ "$CERTBOT" = "" ] ; then
-		CERTBOT=`ls ~/certbot/certbot-auto 2> /dev/null`
+		CERTBOT=`ls ~/certbot/$CERTBOT_EXE 2> /dev/null`
 	fi
 else
-	CERTBOT=$CERTBOTDIR/certbot-auto
+	CERTBOT=$CERTBOTDIR/$CERTBOT_EXE
 fi
 
-# Do not go any further if we can't find the certbot-auto binary
+# Do not go any further if we can't find the $CERTBOT_EXE binary
 if [ "$CERTBOT" = "" -o ! -x "$CERTBOT" ] ; then
-	Usage "Please set CERTBOTDIR before running this script or add certbot-auto to PATH"
+	Usage "Please set CERTBOTDIR before running this script or add $CERTBOT_EXE to PATH"
 fi
 
 if [ ! "$EMAIL" = "" -a "$SENDMAIL" = "" ] ; then
@@ -157,11 +161,11 @@ if [ $HOURS_TO_EXPIRE -lt $[24*$DAYS_BEFORE_AUTO_RENEW] -o "$FORCE" = "yes" -o $
 	rm -fr $WORKDIR
 	mkdir -p $WORKDIR
 
-	# Run the certbot-auto command to get DNS-01 wildcard domain cert
+	# Run the $CERTBOT_EXE command to get DNS-01 wildcard domain cert
 	OUT=/tmp/certbot.out.$$
-	echo "`date`: sudo WORKDIR=$WORKDIR DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN" | tee $OUT
-	sudo WORKDIR=$WORKDIR DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./certbot-auto certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN 2>&1 | tee -a $OUT
-	echo "`date`: Completed call to certbot-auto" | tee -a $OUT
+	echo "`date`: sudo WORKDIR=$WORKDIR DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./$CERTBOT_EXE certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN" | tee $OUT
+	sudo WORKDIR=$WORKDIR DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./$CERTBOT_EXE certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN 2>&1 | tee -a $OUT
+	echo "`date`: Completed call to $CERTBOT_EXE" | tee -a $OUT
 
 	if [ ! "$EMAIL" = "" ] ; then
 		if [ `grep -c "error" $OUT` -gt 0 ] ; then
