@@ -102,14 +102,18 @@ IMPORTANT NOTES:
 Obviously, change the *sampledomain.com* to your domain in above exmaple command.
 
 
-If you get an error about SPF validation failure and you know for a fact your SPF record is valid,
+*If you get an error about SPF validation failure and you know for a fact your SPF record is valid,
 you'll need to go disable the SPF validation check.
+
+First, go to your account Preferences:
 
 ![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/spfhelp/images/usermenu.JPG)
 
+Next, scroll down until you find the *Editing Preferences* section and turn off the SPF validation:
+
 ![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/spfhelp/images/disableSPFcheck.JPG)
 
-Then save and retry
+Then save and retry the certificate renewal.
 
 Feel free to email me at jeanserge.gagnon@gmail.com for any questions or comments and fork this project to submit any pull requests. I will be happy to review and approve any changes that make this code even more useful to others.
 
