@@ -1,6 +1,6 @@
 # zoneedit_letsencrypt
 
-![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/automated-zoneedit-letsencrypt.JPG)
+![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/images/automated-zoneedit-letsencrypt.JPG)
 
 Scripts to enable automated ssl certificate update dns-01 challenge with Linux, Zoneedit and Letsencrypt
 
@@ -101,6 +101,31 @@ IMPORTANT NOTES:
 
 Obviously, change the *sampledomain.com* to your domain in above exmaple command.
 
-Feel free to email me at jeanserge.gagnon@gmail.com for any questions or comments and fork this project to submit any pull requests. I will be happy to review and approve any changes that make this code even more useful to others.
+
+> If you get an error about SPF validation failure and you know for a fact your SPF record is valid,
+you'll need to go disable the SPF validation check.
+
+For example:
+
+```
+You must update your SPF record or attempts to send mail will result in a <b>
+PERMERROR</b>
+. For assistance building a SPF record use our <a href="http://www.spfwizard.com/" target="_blank">
+easySPF Wizard</a>
+. To disable checking of your SPF record visit your preferences page and disable SPF checking for your account.<br />
+ERROR: No IPs detected in SPF!
+```
+
+First, go to your account Preferences:
+
+![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/images/usermenu.JPG)
+
+Next, scroll down until you find the *Editing Preferences* section and turn off the SPF validation:
+
+![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/images/disableSPFcheck.JPG)
+
+Then save and retry the certificate renewal.
+
+> Feel free to email me at jeanserge.gagnon@gmail.com for any questions or comments and fork this project to submit any pull requests. I will be happy to review and approve any changes that make this code even more useful to others.
 
 
