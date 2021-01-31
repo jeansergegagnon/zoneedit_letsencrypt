@@ -1,6 +1,6 @@
 # zoneedit_letsencrypt
 
-![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/spfhelp/images/automated-zoneedit-letsencrypt.JPG)
+![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/images/automated-zoneedit-letsencrypt.JPG)
 
 Scripts to enable automated ssl certificate update dns-01 challenge with Linux, Zoneedit and Letsencrypt
 
@@ -107,11 +107,11 @@ you'll need to go disable the SPF validation check.
 
 First, go to your account Preferences:
 
-![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/spfhelp/images/usermenu.JPG)
+![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/images/usermenu.JPG)
 
 Next, scroll down until you find the *Editing Preferences* section and turn off the SPF validation:
 
-![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/spfhelp/images/disableSPFcheck.JPG)
+![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/images/disableSPFcheck.JPG)
 
 Then save and retry the certificate renewal.
 
