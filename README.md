@@ -115,6 +115,6 @@ Next, scroll down until you find the *Editing Preferences* section and turn off 
 
 Then save and retry the certificate renewal.
 
-| Feel free to email me at jeanserge.gagnon@gmail.com for any questions or comments and fork this project to submit any pull requests. I will be happy to review and approve any changes that make this code even more useful to others.
+>> Feel free to email me at jeanserge.gagnon@gmail.com for any questions or comments and fork this project to submit any pull requests. I will be happy to review and approve any changes that make this code even more useful to others.
 
 
