@@ -154,11 +154,18 @@ if [ -e /etc/letsencrypt/live/$BOTDOMAIN/cert.pem ] ; then
 fi
 
 if [ $HOURS_TO_EXPIRE -lt $[24*$DAYS_BEFORE_AUTO_RENEW] -o "$FORCE" = "yes" -o $HOURS_TO_EXPIRE -eq 0 ] ; then
+	
+	# Prepare a clean workdir - this is needed so that the called script can know both TXT records as
+	# zoneedit might toggle them in the DNS records form data list
+	WORKDIR=/tmp/certbot/$$
+	rm -fr $WORKDIR
+	mkdir -p $WORKDIR
+
 	# Run the $CERTBOT_EXE command to get DNS-01 wildcard domain cert
 	OUT=/tmp/certbot.out.$$
-	echo "`date`: sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./$CERTBOT_EXE certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN" | tee $OUT
-	sudo DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./$CERTBOT_EXE certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN 2>&1 | tee -a $OUT
-	echo "`date`: Completed call to certbot-auto" | tee -a $OUT
+	echo "`date`: sudo WORKDIR=$WORKDIR DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./$CERTBOT_EXE certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN" | tee $OUT
+	sudo WORKDIR=$WORKDIR DEBUG=$DEBUG VERBOSE=$VERBOSE DRYRUN=$DRYRUN ./$CERTBOT_EXE certonly $ARGS -d *.$BOTDOMAIN -d $BOTDOMAIN 2>&1 | tee -a $OUT
+	echo "`date`: Completed call to $CERTBOT_EXE" | tee -a $OUT
 
 	if [ ! "$EMAIL" = "" ] ; then
 		if [ `grep -c "error" $OUT` -gt 0 ] ; then
