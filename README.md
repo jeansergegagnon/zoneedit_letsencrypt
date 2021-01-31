@@ -102,7 +102,7 @@ IMPORTANT NOTES:
 Obviously, change the *sampledomain.com* to your domain in above exmaple command.
 
 
-*If you get an error about SPF validation failure and you know for a fact your SPF record is valid,
+> If you get an error about SPF validation failure and you know for a fact your SPF record is valid,
 you'll need to go disable the SPF validation check.
 
 First, go to your account Preferences:
