@@ -327,7 +327,7 @@ while [ `grep -c TXT::$i::host $FILE` -gt 0 ] ; do
 	if [ $DEBUG ] ; then
 		echo "TXT::$i::host = '$name'"
 	fi
-	val=`grep "TXT::$i::txt.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2`
+	val=`grep "TXT::$i::txt.*value=" $FILE | sed -e "s/.*value=//" | cut -d\" -f2 | tr ' ' +`
 	if [ $DEBUG ] ; then
 		echo "TXT::$i::txt = '$val'"
 	fi
