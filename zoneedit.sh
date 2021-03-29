@@ -224,6 +224,17 @@ if [ $DEBUG ] ; then
 	echo "LOCATION = '$LOCATION'"
 fi
 if [ `echo $LOCATION | grep -c manage/domains` -eq 0 ] ; then
+	if [ $DEBUG ] ; then
+		echo "---------------- headers -----------------"
+		cat $TMPDIR/$NAME.header
+		echo "-------------- end headers ---------------"
+		echo "--------------- stdout -------------------"
+		cat $TMPDIR/$NAME.html
+		echo "------------- end stdout -----------------"
+		echo "--------------- stderr -------------------"
+		cat $TMPDIR/$NAME.stderr
+		echo "------------- end stderr -----------------"
+	fi
 	echo "ERROR: Invalid user or password!"
 	exit 1
 fi
