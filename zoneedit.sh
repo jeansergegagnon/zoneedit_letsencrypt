@@ -223,7 +223,7 @@ LOCATION=`cat $TMPDIR/$NAME.header | tr '\r' '\n' | grep ^Location: | cut -d' ' 
 if [ $DEBUG ] ; then
 	echo "LOCATION = '$LOCATION'"
 fi
-if [ `echo $LOCATION | grep -c manage/domains` -eq 0 ] ; then
+if [ ! "$LOCATION" = "" -a `echo $LOCATION | grep -c manage/domains` -eq 0 ] ; then
 	if [ $DEBUG ] ; then
 		echo "---------------- headers -----------------"
 		cat $TMPDIR/$NAME.header
