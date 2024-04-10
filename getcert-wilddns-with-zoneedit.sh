@@ -5,10 +5,11 @@ MYDIR="`cd \"$MYDIR\" ; pwd`"
 
 # Report error or basic script usage
 Usage() {
-	echo "USAGE: $0 [-h] [-a] [-f] [-D] [-V] [-R] [-e email] -d domain"
+	echo "USAGE: $0 [-h] [-C] [-a] [-f] [-D] [-V] [-R] [-e email] -d domain [-c]"
 	if [ "$1" = "" ] ; then
 		echo "WHERE:"
 		echo "       -h         Show this help output."
+		echo "       -C         Check only expiry date and exit."
 		echo "       -a         Enable full automation and no prompts for license or IP address recording."
 		echo "       -f         Force update even if expiry is not soon enough."
 		echo "       -n         Number of days to consider for renewal (default 10)."
@@ -29,6 +30,7 @@ Usage() {
 BOTDOMAIN=""
 FULL_AUTO=""
 FORCE=no
+CHECKONLY=""
 DEBUG=""
 VERBOSE=""
 DRYRUN=""
@@ -46,6 +48,8 @@ while [ $# -gt 0 ] ; do
 		export EMAIL=$1
 	elif [ "$1" = "-f" ] ; then
 		export FORCE=yes
+	elif [ "$1" = "-C" ] ; then
+		export CHECKONLY=1
 	elif [ "$1" = "-D" ] ; then
 		export DEBUG=1
 	elif [ "$1" = "-V" ] ; then
@@ -151,6 +155,10 @@ if [ -e /etc/letsencrypt/live/$BOTDOMAIN/cert.pem ] ; then
 	else
 		echo "WARNING: Can't find openssl to check cert expiry - will let letsencrypt check for us"
 	fi
+fi
+
+if [ $CHECKONLY ] ; then
+	exit
 fi
 
 if [ $HOURS_TO_EXPIRE -lt $[24*$DAYS_BEFORE_AUTO_RENEW] -o "$FORCE" = "yes" -o $HOURS_TO_EXPIRE -eq 0 ] ; then
