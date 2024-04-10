@@ -2,7 +2,11 @@
 
 ![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/images/automated-zoneedit-letsencrypt.JPG)
 
+#Summary
+
 Scripts to enable automated ssl certificate update dns-01 challenge with Linux, Zoneedit and Letsencrypt
+
+#Overview
 
 This is a very basic script for my needs.
 
@@ -19,9 +23,22 @@ To use this, you need the following:
 
 1. A ZoneEdit hosted Domain
 2. the certbot-auto binary in the path or ~/certbot dir (or specify with CERTBOTDIR environment variable)
-3. Your ZoneEdit user and password (you will need to save them in /etc/sysconfig/zoneedit.cfg file)
+3. Your ZoneEdit user and DYN token (see below on where to get it)
 4. These scripts
 
+#Getting your DYN token:
+
+1. Go to main domain listing page
+2. Click the *dns* link for the domain
+3. Click the top level menu *Domains* link
+4. In domains pull down, click the *DNS settings* menu entry.
+5. In that page, find the *DYN records* section and click the wrench on top right.
+6. Scroll to bottom of page and find the *dynamic authentication* section and click te *enable* link.
+   - if you already enabled it, you can click the *view* instead.
+7. Copy the token value and put it in the /etc/sysconfig/zoneedit/YOURDOMAIN.cfg file (see below).
+
+
+#Installing and using this script
 
 You just install this in a directory, as simple as this:
 
@@ -32,7 +49,7 @@ cd zoneedit_letsencrypt
 ./getcert-wilddns-with-zoneedit.sh -d yourdomain.com
 ```
 
-On first execution, this will fail and you will need to edit the /etc/sysconfig/zoneedit.cfg file
+On first execution, this will fail and you will need to edit the /etc/sysconfig/zoneedit/YOURDOMAIN.cfg file
 and you can re-run the command which will complete
 
 ```
@@ -45,6 +62,8 @@ To automate this in cron, you can add the -a flag and the -e email value, for ex
 CERTBOTDIR=/home/user/certbot
 0 0 10,20 * * /home/user/code/zoneedit_letsencrypt/getcert-wilddns-with-zoneedit.sh -d yourdomain.com -a -e youremail@yourdomain.com
 ```
+
+#Examples
 
 For example, when running this command:
 
@@ -101,6 +120,8 @@ IMPORTANT NOTES:
 
 Obviously, change the *sampledomain.com* to your domain in above exmaple command.
 
+
+#SPR update:
 
 > If you get an error about SPF validation failure and you know for a fact your SPF record is valid,
 you'll need to go disable the SPF validation check.
