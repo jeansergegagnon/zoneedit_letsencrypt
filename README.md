@@ -2,11 +2,11 @@
 
 ![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/images/automated-zoneedit-letsencrypt.JPG)
 
-#Summary
+# Summary
 
 Scripts to enable automated ssl certificate update dns-01 challenge with Linux, Zoneedit and Letsencrypt
 
-#Overview
+# Overview
 
 This is a very basic script for my needs.
 
@@ -26,7 +26,7 @@ To use this, you need the following:
 3. Your ZoneEdit user and DYN token (see below on where to get it)
 4. These scripts
 
-#Getting your DYN token:
+# Getting your DYN token:
 
 1. Go to main domain listing page
 2. Click the *dns* link for the domain
@@ -38,7 +38,7 @@ To use this, you need the following:
 7. Copy the token value and put it in the /etc/sysconfig/zoneedit/YOURDOMAIN.cfg file (see below).
 
 
-#Installing and using this script
+# Installing and using this script
 
 You just install this in a directory, as simple as this:
 
@@ -63,7 +63,7 @@ CERTBOTDIR=/home/user/certbot
 0 0 10,20 * * /home/user/code/zoneedit_letsencrypt/getcert-wilddns-with-zoneedit.sh -d yourdomain.com -a -e youremail@yourdomain.com
 ```
 
-#Examples
+# Examples
 
 For example, when running this command:
 
@@ -121,7 +121,7 @@ IMPORTANT NOTES:
 Obviously, change the *sampledomain.com* to your domain in above exmaple command.
 
 
-#SPR update:
+# SPR update:
 
 > If you get an error about SPF validation failure and you know for a fact your SPF record is valid,
 you'll need to go disable the SPF validation check.
