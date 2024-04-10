@@ -20,7 +20,7 @@ elif [ $VERBOSE ] ; then
 	ARGS="$ARGS -V"
 fi
 
-# Time to sleep after calling DNS update
+# Time to sleep after calling DNS update - tried 5 and 30 and it's not enough
 WAIT_SECONDS=60
 if [ $DRYRUN ] ; then
 	ARGS="$ARGS -R"
@@ -33,5 +33,6 @@ echo "./zoneedit.sh $ARGS"
 ./zoneedit.sh $ARGS || exit $?
 
 # Wait a bit to make sure DNS cache is cleared and update completes
+echo "Sleeping $WAIT_SECONDS seconds..."
 sleep $WAIT_SECONDS
 
