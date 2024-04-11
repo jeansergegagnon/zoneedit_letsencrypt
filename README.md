@@ -23,7 +23,6 @@ To use this, you need the following:
 
 1. A ZoneEdit hosted Domain
 2. the certbot-auto binary in the path or ~/certbot dir (or specify with CERTBOTDIR environment variable)
-<<<<<<< Updated upstream
 3. Your ZoneEdit user and DYN token for EACH domain you want to update.
    (see below on where to get it)
 4. These scripts
@@ -57,18 +56,14 @@ cd zoneedit_letsencrypt
 sudo ./getcert-wilddns-with-zoneedit.sh -d yourdomain.com
 ```
 
-<<<<<<< Updated upstream
 On first execution, this will fail and you will need to edit the /etc/sysconfig/zoneedit/YOURDOMAIN.cfg file
-=======
-On first execution, this will fail and you will need to edit the /etc/sysconfig/{DOMAINNAME}/config.cfg file
->>>>>>> Stashed changes
 and you can re-run the command which will complete
 
 ```
 sudo ./getcert-wilddns-with-zoneedit.sh -d yourdomain.com
 ```
 
-To automate this in cron, you can add the -a flag and the -e email value, for example:
+To automate this in cron, you can add the -a flag and the -e email value, for example this will check yourdomain.com cert every 10th and 20th of the month and update it if it is expiring soon:
 
 ```
 CERTBOTDIR=/home/user/certbot
