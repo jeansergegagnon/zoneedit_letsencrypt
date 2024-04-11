@@ -44,6 +44,9 @@ CURL() {
 		echo "$URL"
 	fi
 	$CMD 2> $TMPDIR/$OUT.stderr | sed -e "s/>/>\\n/g" > $TMPDIR/$OUT.html
+	if [ $DEBUG ] ; then
+		cat $TMPDIR/$OUT.html
+	fi
 }
 
 # Usage of script
@@ -129,37 +132,16 @@ if [ ! -w /etc/passwd ] ; then
 	exit
 fi
 
-# Path to config file
-OLDCONFIG=/etc/sysconfig/zoneedit.cfg
-if [ -f $OLDCONFIG ] ; then
-	. $OLDCONFIG
-else
-	ZONEEDIT_USER=username
-fi
 CONFIG=/etc/sysconfig/zoneedit/$txt_domain.cfg
-
-# Create dummy config file if there is none yet
 if [ ! -f $CONFIG ] ; then
-	if [ ! -d `dirname $CONFIG` ] ; then
-		mkdir -p `dirname $CONFIG`
-	fi
-	echo "# Zoneedit config for domain $txt_domain" > $CONFIG
-	echo "# get your token, by:" >> $CONFIG
-	echo "#   1- Go to your DNS settings for your domain" >> $CONFIG
-	echo "#   2- Click on Domaines top level menu" >> $CONFIG
-	echo "#   3- Select the DNS Settings meny entry" >> $CONFIG
-	echo "#   4- Click on the wrench by the DYN records secion" >> $CONFIG
-	echo "#   5- Scroll to bottom and click the view on the DYN Authention token" >> $CONFIG
-	echo "" >> $CONFIG
-	echo "ZONEEDIT_USERNAME=$ZONEEDIT_USER" >> $CONFIG
-	echo "ZONEEDIT_DYN_TOKEN=token" >> $CONFIG
-	chmod 600 $CONFIG
+	echo "Please create config $CONFIG. See getcert-wilddns-with-zoneedit.sh for default."
+	exit 1
 fi
 
 # Source the config file
 . $CONFIG
 
-if [ "$ZONEEDIT_DYN_TOKEN" = "token" ] ; then
+if [ "$ZONEEDIT_DYN_TOKEN" = "token" -o "$ZONEEDIT_USERNAME" = "username" ] ; then
 	cat $CONFIG
 	echo "ERROR: Edit the file $CONFIG and set your username and token."
 	exit 1
@@ -174,6 +156,7 @@ fi
 if [ ! -d $TMPDIR ] ; then
 	mkdir -p $TMPDIR
 fi
+trap "rm -fr $TMPDIR" EXIT
 
 # Check if the quiet mode switch was enabled (should not be used with -D or -V)
 if [ "$ENABLE_OUTPUT" = "" ] ; then
@@ -190,11 +173,35 @@ fi
 # All initialization is done
 # ------------------------------------------------------------------------------
 
-#output "Removing txt record"
-#NAME=txtremove
-#CURL "https://dynamic.zoneedit.com/txt-create.php?host=$txt_name.$txt_domain&rdata=null" $NAME
-
-output "Applying txt record"
+output "Saving txt record"
 NAME=txtapply
+OUT=$TMPDIR/$NAME.html
 CURL "https://dynamic.zoneedit.com/txt-create.php?host=$txt_name.$txt_domain&rdata=$txt_value" $NAME
+#<SUCCESS CODE="200" TEXT="_acme-challenge.jsgagnon.com TXT updated to 8dBAg83rWjrwn3fRnPkLCoFJQrOlQL_1QREpYP4A62E" ZONE="jsgagnon.com">
+
+echo "`date`: Wait 15 seconds - zoneedit minimum wait is 10 seconds"
+sleep 15
+
+SUCCESS=""
+if [ `grep -c SUCCESS $OUT` -gt 0 ] ; then
+	SUCCESS=1
+fi
+if [ $SUCCESS ] ; then
+	DIR=/var/run/zoneedit/$txt_domain
+	if [ ! -d $DIR ] ; then
+		mkdir -p $DIR
+	fi
+	ID=1
+	SAVEFILE=$DIR/txt$ID
+	while [ -f $SAVEFILE ] ; do
+		ID=$[$ID+1]
+		SAVEFILE=$DIR/txt$ID
+	done
+	echo "$txt_value" > $SAVEFILE
+	
+	echo "OK: Set and saved TXT $txt_value to $SAVEFILE"
+else
+	echo "ERROR: Failed to set TXT to $txt_value"
+	exit 1
+fi
 
