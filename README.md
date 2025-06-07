@@ -1,5 +1,55 @@
 # zoneedit_letsencrypt
 
+# 2025 update
+
+This script is no longer supported as it requires an old verion of certbot and Python 2.7 which is EOL.
+
+The good news is that someone already created a zoneedit plugin at https://pypi.org/project/certbot-dns-zoneedit/.
+
+Persoinally, I went from CentOS 7/8 to Ubuntu 24.10, so this is what I did. Hope it helps.
+
+Following the install instructions at https://certbot.eff.org/instructions?ws=nginx&os=pip, here are the step to migrate from this script to the new plugin:
+
+1. Copy your old certs and configs:
+
+```
+newserver=example.com
+cp /etc/sysconfig/zoneedit /etc/letsencrypt
+scp -r /etc/zoneedit $newserver:/etc/
+```
+   
+3. On your new server, install certbot and plugin:
+
+```
+apt install python3 python3-dev python3-venv libaugeas-dev gcc
+python3 -m venv /opt/certbot/
+/opt/certbot/bin/pip install --upgrade pip
+/opt/certbot/bin/pip install certbot certbot-nginx
+/opt/certbot/bin/pip install certbot-dns-zoneedit
+ln -s /opt/certbot/bin/certbot /usr/bin/certbot
+```
+
+3. Convert the config files on new server:
+
+```
+for FILE in /etc/letsencrypt/zoneedit/*.cfg ; do
+    echo "$FILE"
+    sed -i -e "s/^ZONEEDIT_USERNAME=/dns_zoneedit_user=/" -e "s/^ZONEEDIT_DYN_TOKEN=/dns_zoneedit_token=/" $FILE
+done
+```
+
+4. to update certs, you can now use certbot's auto renew features but if you want to manually renew a single cert, you'd do something like this:
+
+```
+DOMAIN=example.com
+certbot certonly --authenticator dns-zoneedit \
+    --dns-zoneedit-credentials /etc/letsencrypt/zoneedit/$DOMAIN.cfg \
+    --non-interactive --expand -d $DOMAIN
+```
+Hope this help
+
+JS
+
 ![alt text](https://raw.githubusercontent.com/jeansergegagnon/zoneedit_letsencrypt/master/images/automated-zoneedit-letsencrypt.JPG)
 
 # Summary
