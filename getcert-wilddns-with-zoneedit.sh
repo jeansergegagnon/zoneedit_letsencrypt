@@ -162,7 +162,7 @@ echo 0 > $DIR/id || exit $?
 ARGS="--manual --manual-auth-hook $MYDIR/certbot-dns-updater-with-zoneedit.sh --preferred-challenges dns-01"
 if [ $FULL_AUTO ] ; then
 	# If running from cron, add -a argument and this will prevent any prompts to allow full automation
-	ARGS="--agree-tos --manual-public-ip-logging-ok --non-interactive $ARGS"
+	ARGS="--agree-tos --non-interactive $ARGS"
 fi
 if [ $DRYRUN ] ; then
 	ARGS="$ARGS --dry-run"
